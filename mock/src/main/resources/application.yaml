@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: Anam - Mock Interview Coach
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mock_interview
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate    # Flyway owns the schema — Hibernate must never auto-create/alter it
+    open-in-view: false     # avoiding lazy-loading exceptions leaking into the view layer / silent N+1s
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  threads:
+    virtual:
+      enabled: true         # blocking RestClient calls (Anam, LLM) benefit from this
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+
+llm:
+  api-key: ${LLM_API_KEY:not-set}
+  base-url: https://api.anthropic.com
+  model: claude-sonnet-4-6
+
+logging:
+  level:
+    anam.interview.mock: DEBUG
+    org.hibernate.SQL: DEBUG
+
+anam:
+  api-key: ${ANAM_API_KEY:not-set}
+  base-url: https://api.anam.ai
