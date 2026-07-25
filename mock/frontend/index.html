@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interview Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">Interview Console</span>
+      </div>
+      <div class="status-pill" id="status-pill" data-state="idle">
+        <span class="status-dot"></span>
+        <span id="status-text">Not started</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- LEFT: control panel -->
+      <section class="panel" id="control-panel">
+
+        <!-- Setup form -->
+        <form id="setup-form" class="stack">
+          <h1 class="panel-title">Set up your interview</h1>
+          <p class="panel-sub">Configure the role and focus areas. Questions are drawn at random from each competency.</p>
+
+          <label class="field">
+            <span>Role</span>
+            <input type="text" id="role" placeholder="e.g. Backend Engineer" required />
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Seniority</span>
+              <select id="seniority" required>
+                <option value="JUNIOR">Junior</option>
+                <option value="MID">Mid</option>
+                <option value="SENIOR" selected>Senior</option>
+                <option value="STAFF">Staff</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Interviewer style</span>
+              <select id="personaStyle" required>
+                <option value="SUPPORTIVE" selected>Supportive coach</option>
+                <option value="BAR_RAISER">Bar raiser</option>
+              </select>
+            </label>
+          </div>
+
+          <fieldset class="field">
+            <legend>Competencies</legend>
+            <div class="checkbox-grid" id="competency-list">
+              <label class="checkbox"><input type="checkbox" value="leadership" /> Leadership</label>
+              <label class="checkbox"><input type="checkbox" value="conflict" checked /> Conflict</label>
+              <label class="checkbox"><input type="checkbox" value="failure" checked /> Failure</label>
+              <label class="checkbox"><input type="checkbox" value="teamwork" /> Teamwork</label>
+              <label class="checkbox"><input type="checkbox" value="delivery" /> Delivery</label>
+            </div>
+          </fieldset>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Questions per competency</span>
+              <input type="number" id="questionsPerCompetency" min="1" max="5" value="2" required />
+            </label>
+            <label class="field">
+              <span>Time limit (seconds)</span>
+              <input type="number" id="timeLimitSec" min="60" max="180" value="120" required />
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="create-session-btn">Create session</button>
+        </form>
+
+        <!-- Session controls (hidden until a session exists) -->
+        <div class="stack hidden" id="session-panel">
+          <h1 class="panel-title">Session ready</h1>
+          <p class="panel-sub" id="session-meta"></p>
+
+          <div class="question-card">
+            <span class="eyebrow">Question <span id="q-index">1</span> of <span id="q-total">–</span></span>
+            <p id="q-text">–</p>
+          </div>
+
+          <div class="signal-bar" id="signal-bar"></div>
+
+          <div class="btn-row">
+            <button class="btn btn-primary" id="begin-btn">Begin interview</button>
+            <button class="btn btn-ghost hidden" id="next-btn">Next question</button>
+            <button class="btn btn-ghost hidden" id="skip-btn">Skip</button>
+            <button class="btn btn-danger hidden" id="end-btn">End interview</button>
+          </div>
+        </div>
+
+        <div class="transcript" id="transcript">
+          <h2 class="transcript-title">Live transcript</h2>
+          <div class="transcript-log" id="transcript-log">
+            <p class="transcript-empty">Nothing said yet.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: video stage -->
+      <section class="stage">
+        <div class="stage-frame">
+          <video id="persona-video" autoplay playsinline></video>
+          <div class="stage-overlay" id="stage-overlay">
+            <span>Gabriel is waiting to begin</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
