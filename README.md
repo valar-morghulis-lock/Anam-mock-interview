@@ -49,7 +49,8 @@ The backend never exposes API keys to the browser. It exchanges its own Anam and
 | Backend | Java 21, Spring Boot 4.1 |
 | Persistence | PostgreSQL 17, Flyway migrations, Spring Data JPA / Hibernate |
 | Live interviewer | [Anam](https://anam.ai) — real-time avatar, voice, and LLM streaming |
-| Feedback scoring | Anthropic Claude API |
+| Feedback scoring | [Groq](https://groq.com) (default, free tier) — swappable via the `LlmClient` interface; Anthropic Claude supported as an opt-in alternative |
+| PDF export | [OpenPDF](https://github.com/LibrePDF/OpenPDF) |
 | Frontend | Vite, TypeScript, `@anam-ai/js-sdk` |
 | Local infra | Docker Compose (Postgres + pgAdmin) |
 
@@ -75,22 +76,25 @@ Spins up Postgres and pgAdmin. Flyway applies all migrations automatically on th
 
 ### 2. Configure credentials
 
-The backend needs two API keys, read via `application.yml`:
+The backend needs an Anam key (live interviewer) and an LLM key for feedback scoring, read via `application.yml`:
 
 ```yaml
 anam:
   api-key: ${ANAM_API_KEY:not-set}
+groq:
+  api-key: ${GROQ_API_KEY:not-set}
 llm:
   api-key: ${LLM_API_KEY:not-set}
 ```
 
-Both fall back to `not-set` if unset, so the app **starts** without them — but the live interview (`/session-token`) and feedback scoring (`/report`) endpoints will fail until real keys are provided.
+**Groq is the default scoring provider** — free, no payment method required. Anthropic is supported as an opt-in alternative via the `anthropic-llm` Spring profile, if you'd rather use Claude.
+
+All keys fall back to `not-set` if unset, so the app **starts** without them — but the live interview (`/session-token`) and feedback scoring (`/report`) endpoints will fail until real keys are provided.
 
 **Getting the keys:**
 - **Anam**: sign up free at [anam.ai](https://anam.ai) → dashboard → API keys. Free tier includes 30 minutes of conversation per month, 3 minutes per session.
-- **Anthropic**: [console.anthropic.com](https://console.anthropic.com) → API Keys → Create Key. Requires a payment method; billed per token.
-
-> 💡 **Free-of-charge alternative for development:** the feedback-scoring client (`LlmClient`) is built as a swappable interface specifically so the LLM provider isn't locked to Anthropic. A `GroqLlmClient` implementation is planned, using Groq's free tier (no payment method required) as a zero-cost option for local development and testing.
+- **Groq** (recommended, free): sign up at [console.groq.com](https://console.groq.com) → API Keys → Create API Key. No card required, key starts with `gsk_`.
+- **Anthropic** (optional): [console.anthropic.com](https://console.anthropic.com) → API Keys → Create Key. Requires a payment method; billed per token. Only needed if you activate the `anthropic-llm` profile instead of using Groq.
 
 **Setting the env vars:**
 
@@ -132,6 +136,16 @@ npm run dev
 
 Opens on `http://localhost:5173`. Set up an interview, click **Begin interview**, and Gabriel will appear live.
 
+### Quick end-to-end test (no live interview needed)
+
+`scripts/test-report-flow.ps1` exercises the full scoring pipeline without needing a live Anam session — it creates a session, seeds a realistic fake answer for every question, generates the STAR feedback report via Groq, and downloads it as a PDF:
+
+```powershell
+.\scripts\test-report-flow.ps1
+```
+
+Useful for verifying the backend, Groq integration, and PDF export all work correctly before testing the full live-interview flow through the UI. Accepts parameters to customize the role, seniority, persona style, and competencies — see the script's header comment for details.
+
 ---
 
 ## API reference
@@ -146,6 +160,7 @@ Opens on `http://localhost:5173`. Set up an interview, click **Begin interview**
 | `GET /api/interviews/{id}/transcript` | Retrieve the full transcript |
 | `POST /api/interviews/{id}/end` | Mark the session as completed or abandoned |
 | `POST /api/interviews/{id}/report` | Generate the STAR-scored feedback report |
+| `GET /api/interviews/{id}/report/pdf` | Download the feedback report as a PDF (requires a report to already exist) |
 
 All errors are returned as [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) `ProblemDetail` responses.
 
@@ -196,9 +211,9 @@ Once the interview ends, the full transcript is analyzed by Claude, answer by an
 Ideas to take the coach beyond its current scope, and where the project stands against each one today:
 
 - **Per-answer timer** — not implemented. `time_limit_sec` currently caps the whole session in Anam, but there's no per-question timer surfaced in the UI to help candidates practise keeping individual answers to two or three minutes.
-- **Printable / PDF feedback report** — not implemented. `POST /report` returns a JSON `FeedbackReport` with an overall summary, but there's no PDF export, and the per-answer STAR breakdown (`AnswerFeedback` rows) isn't even exposed via a `GET` endpoint yet — it only exists in the database.
+- **Printable / PDF feedback report** — ✅ implemented. `GET /report/pdf` renders the overall summary and full per-answer STAR breakdown (via OpenPDF) directly from the persisted report data, no re-scoring required.
 - **Technical and system design interview modes** — not implemented. The competency model (`leadership`, `conflict`, `failure`, `teamwork`, `delivery`) and scoring rubric are behavioural-only; a technical mode would need its own question bank and a different scoring rubric than STAR.
-- **Bring your own LLM to the live conversation** — not implemented. The live interviewer currently runs on one of Anam's built-in models (GPT OSS 120B); Claude is only used after the fact to score the transcript. Wiring Claude into the live conversation itself would mean switching to Anam's `CUSTOMER_CLIENT_V1` custom-LLM mode, handling `MESSAGE_HISTORY_UPDATED` events, and streaming responses back via Anam's talk-message API — meaningfully more work than the current setup, but it would let the same model that scores answers also decide what to ask next.
+- **Bring your own LLM to the live conversation** — not implemented. The live interviewer currently runs on one of Anam's built-in models (GPT OSS 120B); Groq (or optionally Anthropic) is only used after the fact to score the transcript. Wiring an LLM into the live conversation itself would mean switching to Anam's `CUSTOMER_CLIENT_V1` custom-LLM mode, handling `MESSAGE_HISTORY_UPDATED` events, and streaming responses back via Anam's talk-message API — meaningfully more work than the current setup, but it would let the same model that scores answers also decide what to ask next.
 
 ---
 
