@@ -79,6 +79,15 @@ public class FeedbackGenerationService {
                 .map(TranscriptMessage::getContent)
                 .collect(Collectors.joining(" "));
 
+        if (candidateAnswer.isBlank()) {
+            return AnswerFeedback.builder()
+                    .sessionQuestion(sessionQuestion)
+                    .hasSituation(false).hasTask(false).hasAction(false).hasResult(false)
+                    .score(0)
+                    .improvement("No answer was recorded for this question.")
+                    .build();
+        }
+
         String rawResponse = llmClient.complete(
                 FeedbackPromptBuilder.system(),
                 FeedbackPromptBuilder.userPrompt(sessionQuestion.getQuestion().getText(), candidateAnswer)
@@ -96,7 +105,6 @@ public class FeedbackGenerationService {
                 .improvement(analysis.improvement())
                 .build();
     }
-
     private String summarizeStrengths(InterviewSession session,
                                       List<SessionQuestion> answered,
                                       List<AnswerFeedback> feedback) {

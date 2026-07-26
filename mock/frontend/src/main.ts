@@ -11,10 +11,27 @@ type SessionResponse = {
   personaStyle: string;
   questions: QuestionSummary[];
 };
+type AnswerSummary = {
+  questionText: string;
+  hasSituation: boolean;
+  hasTask: boolean;
+  hasAction: boolean;
+  hasResult: boolean;
+  score: number;
+  improvement: string;
+};
+type FeedbackReportResponse = {
+  reportId: string;
+  sessionId: string;
+  overallStrengths: string;
+  createdAt: string;
+  answers: AnswerSummary[];
+};
 
 // ---- DOM refs ----
 const setupForm = document.getElementById("setup-form") as HTMLFormElement;
 const sessionPanel = document.getElementById("session-panel")!;
+const reportPanel = document.getElementById("report-panel")!;
 const sessionMeta = document.getElementById("session-meta")!;
 const qIndexEl = document.getElementById("q-index")!;
 const qTotalEl = document.getElementById("q-total")!;
@@ -27,17 +44,57 @@ const endBtn = document.getElementById("end-btn") as HTMLButtonElement;
 const statusPill = document.getElementById("status-pill")!;
 const statusText = document.getElementById("status-text")!;
 const stageOverlay = document.getElementById("stage-overlay")!;
+const stageOverlayText = document.getElementById("stage-overlay-text")!;
+const stageConnecting = document.getElementById("stage-connecting")!;
 const transcriptLog = document.getElementById("transcript-log")!;
+const jumpLatestBtn = document.getElementById("jump-latest-btn") as HTMLButtonElement;
+const toastStack = document.getElementById("toast-stack")!;
+const competencyError = document.getElementById("competency-error")!;
+
+const reportMeta = document.getElementById("report-meta")!;
+const scoreRingRow = document.getElementById("score-ring-row")!;
+const reportSummary = document.getElementById("report-summary")!;
+const answerListEl = document.getElementById("answer-list")!;
+const downloadPdfBtn = document.getElementById("download-pdf-btn") as HTMLAnchorElement;
+const restartBtn = document.getElementById("restart-btn") as HTMLButtonElement;
 
 // ---- State ----
 let session: SessionResponse | null = null;
 let currentIndex = 0;
 let anamClient: AnamClient | null = null;
 let lastMessageCount = 0;
+let autoScroll = true;
+
+// ---- Toasts ----
+function showToast(message: string, type: "error" | "success" = "error", timeoutMs = 6000) {
+  const toast = document.createElement("div");
+  toast.className = "toast" + (type === "success" ? " toast-success" : "");
+  toast.innerHTML = `<span>${message}</span><button class="toast-close" aria-label="Dismiss">×</button>`;
+  toastStack.appendChild(toast);
+
+  const remove = () => toast.remove();
+  toast.querySelector(".toast-close")!.addEventListener("click", remove);
+  if (timeoutMs > 0) setTimeout(remove, timeoutMs);
+}
+
+// ---- Button loading helper ----
+function setButtonLoading(btn: HTMLButtonElement, loading: boolean) {
+  const label = btn.querySelector(".btn-label");
+  const spinner = btn.querySelector(".spinner");
+  btn.disabled = loading;
+  if (spinner) spinner.classList.toggle("hidden", !loading);
+  if (label && loading) label.setAttribute("data-prev", label.textContent ?? "");
+}
 
 function setStatus(state: "idle" | "connecting" | "live" | "ended", label: string) {
   statusPill.setAttribute("data-state", state);
   statusText.textContent = label;
+}
+
+function switchView(view: "setup" | "session" | "report") {
+  setupForm.classList.toggle("hidden", view !== "setup");
+  sessionPanel.classList.toggle("hidden", view !== "session");
+  reportPanel.classList.toggle("hidden", view !== "report");
 }
 
 function renderSignalBar() {
@@ -53,9 +110,9 @@ function renderSignalBar() {
 function renderCurrentQuestion() {
   if (!session) return;
   const q = session.questions[currentIndex];
-  qIndexEl.textContent = String(currentIndex + 1);
+  qIndexEl.textContent = String(Math.min(currentIndex + 1, session.questions.length));
   qTotalEl.textContent = String(session.questions.length);
-  qTextEl.textContent = q ? q.text : "Interview complete.";
+  qTextEl.textContent = q ? q.text : "All questions answered.";
   renderSignalBar();
 
   const atEnd = currentIndex >= session.questions.length;
@@ -69,17 +126,36 @@ function appendTranscriptLine(speaker: "INTERVIEWER" | "CANDIDATE", content: str
 
   const div = document.createElement("div");
   div.className = "msg " + (speaker === "CANDIDATE" ? "msg-candidate" : "msg-interviewer");
-  const who = document.createElement("span");
+  const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const who = document.createElement("div");
   who.className = "who";
-  who.textContent = speaker === "CANDIDATE" ? "You" : "Gabriel";
+  who.innerHTML = `<span>${speaker === "CANDIDATE" ? "You" : "Gabriel"}</span><span>${time}</span>`;
   const body = document.createElement("p");
   body.style.margin = "0";
   body.textContent = content;
   div.appendChild(who);
   div.appendChild(body);
   transcriptLog.appendChild(div);
-  transcriptLog.scrollTop = transcriptLog.scrollHeight;
+
+  if (autoScroll) {
+    transcriptLog.scrollTop = transcriptLog.scrollHeight;
+    jumpLatestBtn.classList.add("hidden");
+  } else {
+    jumpLatestBtn.classList.remove("hidden");
+  }
 }
+
+transcriptLog.addEventListener("scroll", () => {
+  const atBottom = transcriptLog.scrollHeight - transcriptLog.scrollTop - transcriptLog.clientHeight < 20;
+  autoScroll = atBottom;
+  if (atBottom) jumpLatestBtn.classList.add("hidden");
+});
+
+jumpLatestBtn.addEventListener("click", () => {
+  transcriptLog.scrollTop = transcriptLog.scrollHeight;
+  autoScroll = true;
+  jumpLatestBtn.classList.add("hidden");
+});
 
 async function postTranscriptMessage(speaker: "INTERVIEWER" | "CANDIDATE", content: string) {
   if (!session) return;
@@ -92,6 +168,7 @@ async function postTranscriptMessage(speaker: "INTERVIEWER" | "CANDIDATE", conte
     });
   } catch (err) {
     console.error("Failed to persist transcript message", err);
+    showToast("Couldn't save that message — check the backend connection.");
   }
 }
 
@@ -99,8 +176,6 @@ async function postTranscriptMessage(speaker: "INTERVIEWER" | "CANDIDATE", conte
 setupForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const submitBtn = document.getElementById("create-session-btn") as HTMLButtonElement;
-  submitBtn.disabled = true;
-  submitBtn.textContent = "Creating…";
 
   const role = (document.getElementById("role") as HTMLInputElement).value;
   const seniority = (document.getElementById("seniority") as HTMLSelectElement).value;
@@ -114,23 +189,19 @@ setupForm.addEventListener("submit", async (e) => {
   ).map((el) => el.value);
 
   if (competencyNames.length === 0) {
-    alert("Select at least one competency.");
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Create session";
+    competencyError.classList.remove("hidden");
     return;
   }
+  competencyError.classList.add("hidden");
+
+  setButtonLoading(submitBtn, true);
 
   try {
     const res = await fetch(API_BASE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        role,
-        seniority,
-        personaStyle,
-        competencyNames,
-        questionsPerCompetency,
-        timeLimitSec,
+        role, seniority, personaStyle, competencyNames, questionsPerCompetency, timeLimitSec,
       }),
     });
 
@@ -138,24 +209,23 @@ setupForm.addEventListener("submit", async (e) => {
     session = await res.json();
     currentIndex = 0;
 
-    setupForm.classList.add("hidden");
-    sessionPanel.classList.remove("hidden");
+    switchView("session");
     sessionMeta.textContent = `${session!.role} · ${session!.seniority} · ${session!.questions.length} questions`;
     renderCurrentQuestion();
   } catch (err) {
     console.error(err);
-    alert("Could not create session. Check the backend is running on localhost:8080.");
+    showToast("Could not create session. Check the backend is running on localhost:8080.");
   } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Create session";
+    setButtonLoading(submitBtn, false);
   }
 });
 
 // ---- Begin interview ----
 beginBtn.addEventListener("click", async () => {
   if (!session) return;
-  beginBtn.disabled = true;
+  setButtonLoading(beginBtn, true);
   setStatus("connecting", "Connecting…");
+  stageConnecting.classList.remove("hidden");
 
   try {
     const tokenRes = await fetch(`${API_BASE}/${session.sessionId}/session-token`, { method: "POST" });
@@ -173,6 +243,7 @@ beginBtn.addEventListener("click", async () => {
     anamClient.addListener(AnamEvent.SESSION_READY, () => {
       setStatus("live", "Live");
       stageOverlay.classList.add("hidden");
+      stageConnecting.classList.add("hidden");
       beginBtn.classList.add("hidden");
       nextBtn.classList.remove("hidden");
       skipBtn.classList.remove("hidden");
@@ -196,13 +267,16 @@ beginBtn.addEventListener("click", async () => {
     await anamClient.streamToVideoElement("persona-video");
   } catch (err) {
     console.error(err);
-    alert("Could not start the interview. Check the backend and Anam connection.");
+    showToast("Could not start the interview. Check the backend and Anam connection.");
     setStatus("idle", "Not started");
-    beginBtn.disabled = false;
+    stageConnecting.classList.add("hidden");
+    stageOverlayText.textContent = "Gabriel is waiting to begin";
+    stageOverlay.classList.remove("hidden");
+    setButtonLoading(beginBtn, false);
   }
 });
 
-// ---- Next / skip / end ----
+// ---- Next / skip ----
 nextBtn.addEventListener("click", () => {
   if (!session) return;
   currentIndex = Math.min(currentIndex + 1, session.questions.length);
@@ -225,19 +299,111 @@ skipBtn.addEventListener("click", async () => {
   renderCurrentQuestion();
 });
 
+// ---- End interview → generate + show report ----
+function scoreColor(score: number): string {
+  if (score >= 4) return "var(--accent)";
+  if (score >= 3) return "var(--warn)";
+  return "var(--danger)";
+}
+
+function renderScoreRing(score: number): HTMLElement {
+  const pct = (score / 5) * 100;
+  const color = scoreColor(score);
+  const ring = document.createElement("div");
+  ring.className = "score-ring";
+  ring.style.background = `conic-gradient(${color} ${pct}%, var(--border) ${pct}% 100%)`;
+  ring.innerHTML = `<span style="background:var(--bg); width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;">${score}</span>`;
+  return ring;
+}
+
+function renderReport(report: FeedbackReportResponse) {
+  reportMeta.textContent = `${session?.role ?? ""} · ${session?.seniority ?? ""} · generated ${new Date(report.createdAt).toLocaleString()}`;
+
+  scoreRingRow.innerHTML = "";
+  report.answers.forEach((a) => scoreRingRow.appendChild(renderScoreRing(a.score)));
+
+  reportSummary.textContent = report.overallStrengths;
+
+  answerListEl.innerHTML = "";
+  report.answers.forEach((a, i) => {
+    const card = document.createElement("div");
+    card.className = "answer-card";
+
+    const head = document.createElement("div");
+    head.className = "answer-card-head";
+    head.innerHTML = `
+      <p class="answer-card-question">Q${i + 1}. ${a.questionText}</p>
+      <span class="answer-score-badge" style="color:${scoreColor(a.score)}; border:1px solid ${scoreColor(a.score)};">${a.score} / 5</span>
+    `;
+    card.appendChild(head);
+
+    const tags = document.createElement("div");
+    tags.className = "star-tags";
+    const starMap: [string, boolean][] = [
+      ["Situation", a.hasSituation], ["Task", a.hasTask], ["Action", a.hasAction], ["Result", a.hasResult],
+    ];
+    starMap.forEach(([label, present]) => {
+      const tag = document.createElement("span");
+      tag.className = "star-tag" + (present ? " present" : "");
+      tag.textContent = label;
+      tags.appendChild(tag);
+    });
+    card.appendChild(tags);
+
+    const improvement = document.createElement("p");
+    improvement.className = "answer-improvement";
+    improvement.textContent = a.improvement;
+    card.appendChild(improvement);
+
+    answerListEl.appendChild(card);
+  });
+
+  downloadPdfBtn.href = `${API_BASE}/${report.sessionId}/report/pdf`;
+  switchView("report");
+}
+
 endBtn.addEventListener("click", async () => {
   if (!session) return;
-  endBtn.disabled = true;
+  setButtonLoading(endBtn, true);
+
   try {
     anamClient?.stopStreaming();
     await fetch(`${API_BASE}/${session.sessionId}/end?completedNaturally=true`, { method: "POST" });
+    setStatus("ended", "Generating report…");
+
+    const reportRes = await fetch(`${API_BASE}/${session.sessionId}/report`, { method: "POST" });
+    if (!reportRes.ok) throw new Error(`Report generation failed: ${reportRes.status}`);
+    const report: FeedbackReportResponse = await reportRes.json();
+
     setStatus("ended", "Ended");
-    stageOverlay.classList.remove("hidden");
-    stageOverlay.querySelector("span")!.textContent = "Interview ended";
-    nextBtn.classList.add("hidden");
-    skipBtn.classList.add("hidden");
-    endBtn.classList.add("hidden");
+    showToast("Feedback report ready.", "success");
+    renderReport(report);
   } catch (err) {
     console.error(err);
+    showToast("Interview ended, but the report couldn't be generated. Check your LLM API key.");
+    setStatus("ended", "Ended");
+  } finally {
+    setButtonLoading(endBtn, false);
   }
+});
+
+// ---- Restart ----
+restartBtn.addEventListener("click", () => {
+  session = null;
+  currentIndex = 0;
+  lastMessageCount = 0;
+  anamClient = null;
+
+  setupForm.reset();
+  competencyError.classList.add("hidden");
+  transcriptLog.innerHTML = '<p class="transcript-empty">Nothing said yet.</p>';
+  beginBtn.classList.remove("hidden");
+  nextBtn.classList.add("hidden");
+  skipBtn.classList.add("hidden");
+  endBtn.classList.add("hidden");
+  stageOverlayText.textContent = "Gabriel is waiting to begin";
+  stageOverlay.classList.remove("hidden");
+
+  setStatus("idle", "Not started");
+  switchView("setup");
 });

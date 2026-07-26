@@ -6,7 +6,7 @@
   <title>Interview Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
@@ -22,12 +22,14 @@
       </div>
     </header>
 
+    <div id="toast-stack" class="toast-stack"></div>
+
     <main class="layout">
       <!-- LEFT: control panel -->
       <section class="panel" id="control-panel">
 
         <!-- Setup form -->
-        <form id="setup-form" class="stack">
+        <form id="setup-form" class="stack view">
           <h1 class="panel-title">Set up your interview</h1>
           <p class="panel-sub">Configure the role and focus areas. Questions are drawn at random from each competency.</p>
 
@@ -57,13 +59,14 @@
 
           <fieldset class="field">
             <legend>Competencies</legend>
-            <div class="checkbox-grid" id="competency-list">
-              <label class="checkbox"><input type="checkbox" value="leadership" /> Leadership</label>
-              <label class="checkbox"><input type="checkbox" value="conflict" checked /> Conflict</label>
-              <label class="checkbox"><input type="checkbox" value="failure" checked /> Failure</label>
-              <label class="checkbox"><input type="checkbox" value="teamwork" /> Teamwork</label>
-              <label class="checkbox"><input type="checkbox" value="delivery" /> Delivery</label>
+            <div class="chip-grid" id="competency-list">
+              <label class="chip"><input type="checkbox" value="leadership" /><span>Leadership</span></label>
+              <label class="chip"><input type="checkbox" value="conflict" checked /><span>Conflict</span></label>
+              <label class="chip"><input type="checkbox" value="failure" checked /><span>Failure</span></label>
+              <label class="chip"><input type="checkbox" value="teamwork" /><span>Teamwork</span></label>
+              <label class="chip"><input type="checkbox" value="delivery" /><span>Delivery</span></label>
             </div>
+            <p class="field-error hidden" id="competency-error">Select at least one competency.</p>
           </fieldset>
 
           <div class="field-row">
@@ -77,11 +80,14 @@
             </label>
           </div>
 
-          <button type="submit" class="btn btn-primary" id="create-session-btn">Create session</button>
+          <button type="submit" class="btn btn-primary" id="create-session-btn">
+            <span class="btn-label">Create session</span>
+            <span class="spinner hidden"></span>
+          </button>
         </form>
 
-        <!-- Session controls (hidden until a session exists) -->
-        <div class="stack hidden" id="session-panel">
+        <!-- Session controls -->
+        <div class="stack view hidden" id="session-panel">
           <h1 class="panel-title">Session ready</h1>
           <p class="panel-sub" id="session-meta"></p>
 
@@ -93,15 +99,41 @@
           <div class="signal-bar" id="signal-bar"></div>
 
           <div class="btn-row">
-            <button class="btn btn-primary" id="begin-btn">Begin interview</button>
+            <button class="btn btn-primary" id="begin-btn">
+              <span class="btn-label">Begin interview</span>
+              <span class="spinner hidden"></span>
+            </button>
             <button class="btn btn-ghost hidden" id="next-btn">Next question</button>
             <button class="btn btn-ghost hidden" id="skip-btn">Skip</button>
-            <button class="btn btn-danger hidden" id="end-btn">End interview</button>
+            <button class="btn btn-danger hidden" id="end-btn">
+              <span class="btn-label">End interview</span>
+              <span class="spinner hidden"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Report view -->
+        <div class="stack view hidden" id="report-panel">
+          <h1 class="panel-title">Feedback report</h1>
+          <p class="panel-sub" id="report-meta"></p>
+
+          <div class="score-ring-row" id="score-ring-row"></div>
+
+          <div class="report-summary" id="report-summary"></div>
+
+          <div class="answer-list" id="answer-list"></div>
+
+          <div class="btn-row">
+            <a class="btn btn-primary" id="download-pdf-btn" href="#" target="_blank">Download PDF</a>
+            <button class="btn btn-ghost" id="restart-btn">Start a new interview</button>
           </div>
         </div>
 
         <div class="transcript" id="transcript">
-          <h2 class="transcript-title">Live transcript</h2>
+          <div class="transcript-header">
+            <h2 class="transcript-title">Live transcript</h2>
+            <button class="jump-latest hidden" id="jump-latest-btn">Jump to latest ↓</button>
+          </div>
           <div class="transcript-log" id="transcript-log">
             <p class="transcript-empty">Nothing said yet.</p>
           </div>
@@ -111,9 +143,20 @@
       <!-- RIGHT: video stage -->
       <section class="stage">
         <div class="stage-frame">
+          <div class="stage-idle-pattern" id="stage-idle-pattern"></div>
           <video id="persona-video" autoplay playsinline></video>
           <div class="stage-overlay" id="stage-overlay">
-            <span>Gabriel is waiting to begin</span>
+            <div class="stage-overlay-inner">
+              <svg class="stage-silhouette" width="72" height="72" viewBox="0 0 72 72" fill="none">
+                <circle cx="36" cy="24" r="14" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 60c0-13.3 10.7-22 24-22s24 8.7 24 22" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              <span id="stage-overlay-text">Gabriel is waiting to begin</span>
+            </div>
+          </div>
+          <div class="stage-connecting hidden" id="stage-connecting">
+            <div class="pulse-ring"></div>
+            <span>Connecting…</span>
           </div>
         </div>
       </section>
