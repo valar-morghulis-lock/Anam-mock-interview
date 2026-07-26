@@ -59,12 +59,12 @@
 
           <fieldset class="field">
             <legend>Competencies</legend>
-            <div class="checkbox-grid" id="competency-list">
-              <label class="checkbox"><input type="checkbox" value="leadership" /> Leadership</label>
-              <label class="checkbox"><input type="checkbox" value="conflict" checked /> Conflict</label>
-              <label class="checkbox"><input type="checkbox" value="failure" checked /> Failure</label>
-              <label class="checkbox"><input type="checkbox" value="teamwork" /> Teamwork</label>
-              <label class="checkbox"><input type="checkbox" value="delivery" /> Delivery</label>
+            <div class="chip-grid" id="competency-list">
+              <label class="chip"><input type="checkbox" value="leadership" /><span>Leadership</span></label>
+              <label class="chip"><input type="checkbox" value="conflict" checked /><span>Conflict</span></label>
+              <label class="chip"><input type="checkbox" value="failure" checked /><span>Failure</span></label>
+              <label class="chip"><input type="checkbox" value="teamwork" /><span>Teamwork</span></label>
+              <label class="chip"><input type="checkbox" value="delivery" /><span>Delivery</span></label>
             </div>
             <p class="field-error hidden" id="competency-error">Select at least one competency.</p>
           </fieldset>
@@ -143,9 +143,14 @@
       <!-- RIGHT: video stage -->
       <section class="stage">
         <div class="stage-frame">
+          <div class="stage-idle-pattern" id="stage-idle-pattern"></div>
           <video id="persona-video" autoplay playsinline></video>
           <div class="stage-overlay" id="stage-overlay">
             <div class="stage-overlay-inner">
+              <svg class="stage-silhouette" width="72" height="72" viewBox="0 0 72 72" fill="none">
+                <circle cx="36" cy="24" r="14" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 60c0-13.3 10.7-22 24-22s24 8.7 24 22" stroke="currentColor" stroke-width="2"/>
+              </svg>
               <span id="stage-overlay-text">Gabriel is waiting to begin</span>
             </div>
           </div>
