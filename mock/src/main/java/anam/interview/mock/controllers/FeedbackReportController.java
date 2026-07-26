@@ -1,5 +1,6 @@
 package anam.interview.mock.controllers;
 
+import anam.interview.mock.dto.FeedbackReportResponse;
 import anam.interview.mock.entities.FeedbackReport;
 import anam.interview.mock.service.FeedbackGenerationService;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,7 @@ public class FeedbackReportController {
     private final FeedbackGenerationService feedbackGenerationService;
 
     @PostMapping
-    public ResponseEntity<FeedbackReport> generate(@PathVariable UUID sessionId) {
+    public ResponseEntity<FeedbackReportResponse> generate(@PathVariable UUID sessionId) {
         return ResponseEntity.ok(feedbackGenerationService.generateReport(sessionId));
     }
 }

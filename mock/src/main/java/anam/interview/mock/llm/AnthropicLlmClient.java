@@ -3,12 +3,14 @@ package anam.interview.mock.llm;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
 
 @Component
+@Profile("anthropic-llm")
 public class AnthropicLlmClient implements LlmClient {
 
     private final RestClient restClient;

@@ -1,5 +1,6 @@
 package anam.interview.mock.service;
 
+import anam.interview.mock.dto.FeedbackReportResponse;
 import anam.interview.mock.entities.*;
 import anam.interview.mock.entities.TranscriptMessage.Speaker;
 import anam.interview.mock.exceptions.ResourceNotFoundException;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,7 +29,7 @@ public class FeedbackGenerationService {
     private final AnswerFeedbackParser parser;
 
     @Transactional
-    public FeedbackReport generateReport(UUID sessionId) {
+    public FeedbackReportResponse generateReport(UUID sessionId) {
 
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("No such session: " + sessionId));
@@ -46,8 +48,28 @@ public class FeedbackGenerationService {
                 .session(session)
                 .overallStrengths(overallStrengths)
                 .build();
+        report = feedbackReportRepository.save(report);
 
-        return feedbackReportRepository.save(report);
+        List<FeedbackReportResponse.AnswerSummary> answerSummaries = getAnswerSummaries(answered, allFeedback);
+
+        return new FeedbackReportResponse(
+                report.getId(), session.getId(), report.getOverallStrengths(),
+                report.getCreatedAt(), answerSummaries
+        );
+    }
+
+    private static List<FeedbackReportResponse.AnswerSummary> getAnswerSummaries(List<SessionQuestion> answered, List<AnswerFeedback> allFeedback) {
+        List<FeedbackReportResponse.AnswerSummary> answerSummaries = new ArrayList<>();
+        for (int i = 0; i < answered.size(); i++) {
+            SessionQuestion sq = answered.get(i);
+            AnswerFeedback af = allFeedback.get(i);
+            answerSummaries.add(new FeedbackReportResponse.AnswerSummary(
+                    sq.getQuestion().getText(),
+                    af.isHasSituation(), af.isHasTask(), af.isHasAction(), af.isHasResult(),
+                    af.getScore(), af.getImprovement()
+            ));
+        }
+        return answerSummaries;
     }
 
     private AnswerFeedback scoreAnswer(SessionQuestion sessionQuestion) {

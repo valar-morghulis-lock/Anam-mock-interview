@@ -52,3 +52,8 @@ logging:
 anam:
   api-key: ${ANAM_API_KEY:not-set}
   base-url: https://api.anam.ai
+
+groq:
+  api-key: ${GROQ_API_KEY:not-set}
+  base-url: https://api.groq.com/openai/v1
+  model: openai/gpt-oss-120b
