@@ -50,6 +50,13 @@ const transcriptLog = document.getElementById("transcript-log")!;
 const jumpLatestBtn = document.getElementById("jump-latest-btn") as HTMLButtonElement;
 const toastStack = document.getElementById("toast-stack")!;
 const competencyError = document.getElementById("competency-error")!;
+const technicalCheckbox = document.getElementById("technical-checkbox") as HTMLInputElement;
+const languageField = document.getElementById("language-field")!;
+const languageSelect = document.getElementById("language") as HTMLSelectElement;
+
+technicalCheckbox.addEventListener("change", () => {
+  languageField.classList.toggle("hidden", !technicalCheckbox.checked);
+});
 
 const reportMeta = document.getElementById("report-meta")!;
 const scoreRingRow = document.getElementById("score-ring-row")!;
@@ -194,6 +201,8 @@ setupForm.addEventListener("submit", async (e) => {
   }
   competencyError.classList.add("hidden");
 
+  const language = technicalCheckbox.checked ? languageSelect.value : null;
+
   setButtonLoading(submitBtn, true);
 
   try {
@@ -201,7 +210,7 @@ setupForm.addEventListener("submit", async (e) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        role, seniority, personaStyle, competencyNames, questionsPerCompetency, timeLimitSec,
+        role, seniority, personaStyle, competencyNames, language, questionsPerCompetency, timeLimitSec,
       }),
     });
 
@@ -396,6 +405,7 @@ restartBtn.addEventListener("click", () => {
 
   setupForm.reset();
   competencyError.classList.add("hidden");
+  languageField.classList.add("hidden");
   transcriptLog.innerHTML = '<p class="transcript-empty">Nothing said yet.</p>';
   beginBtn.classList.remove("hidden");
   nextBtn.classList.add("hidden");

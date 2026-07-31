@@ -253,6 +253,17 @@ html, body {
   margin: 6px 0 0;
 }
 
+.field-hint {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  margin: 2px 0 0;
+}
+
+#language-field {
+  animation: viewIn 0.25s var(--ease);
+}
+
 input[type="text"], input[type="number"], select {
   background: var(--panel-raised);
   border: 1px solid var(--border);

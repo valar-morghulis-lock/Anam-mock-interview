@@ -22,4 +22,21 @@ public class Question {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "competency_id", nullable = false)
     private Competency competency;
+
+    @Column(name = "role_tag", length = 100)
+    private String roleTag;
+
+    @Column(name = "language_tag", length = 50)
+    private String languageTag;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private QuestionSource source = QuestionSource.SEEDED;
+
+    @Column(name = "occurrence_count", nullable = false)
+    @Builder.Default
+    private int occurrenceCount = 0;
+
+    public enum QuestionSource { SEEDED, GENERATED }
 }
