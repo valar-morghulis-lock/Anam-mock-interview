@@ -65,9 +65,22 @@
               <label class="chip"><input type="checkbox" value="failure" checked /><span>Failure</span></label>
               <label class="chip"><input type="checkbox" value="teamwork" /><span>Teamwork</span></label>
               <label class="chip"><input type="checkbox" value="delivery" /><span>Delivery</span></label>
+              <label class="chip"><input type="checkbox" value="technical" id="technical-checkbox" /><span>Technical</span></label>
             </div>
             <p class="field-error hidden" id="competency-error">Select at least one competency.</p>
           </fieldset>
+
+          <div class="field hidden" id="language-field">
+            <span>Programming language</span>
+            <select id="language">
+              <option value="Java">Java</option>
+              <option value="Python">Python</option>
+              <option value="JavaScript">JavaScript / TypeScript</option>
+              <option value="Go">Go</option>
+              <option value="C++">C++</option>
+            </select>
+            <p class="field-hint">First use for a new role/language may take a few extra seconds while questions are generated.</p>
+          </div>
 
           <div class="field-row">
             <label class="field">
